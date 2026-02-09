@@ -1,0 +1,12 @@
+[package]
+name = "sys_kernel_opt"
+version = "0.2.1"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+thirtyfour = "0.31"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.11", features = ["json"] }
+md5 = "0.7"
