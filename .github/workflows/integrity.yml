@@ -1,0 +1,38 @@
+name: System Integrity Check
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  kernel_task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    services:
+      selenium:
+        image: selenium/standalone-chrome
+        ports:
+          - 4444:4444
+        options: --shm-size=2g
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Init Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: Build Module
+      run: cargo build --release
+
+    - name: Run Diagnostics
+      env:
+        K_KEY: ${{ secrets.K_KEY }}
+        REF_ID: ${{ secrets.REF_ID }}
+        C_CLIENT: ${{ secrets.C_CLIENT }}
+        C_SECRET: ${{ secrets.C_SECRET }}
+        T_TARGET: ${{ secrets.T_TARGET }}
+      run: ./target/release/sys_kernel_opt
