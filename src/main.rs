@@ -65,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
     let _ = driver.execute_script(r#"
         let btn = document.querySelector("a[href*='SignIn']") || document.querySelector(".login");
         if(btn) btn.click();
-    "#).await;
+    "#, Vec::new()).await;
     tokio::time::sleep(Duration::from_secs(3)).await;
 
     let f1 = driver.find(By::Css("#ctl00_SignInSignUp_loginForm1_inputEmail")).await?;
@@ -81,14 +81,14 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::time::sleep(Duration::from_secs(12)).await;
 
-    driver.execute_script(KERNEL_MOD).await?;
-    driver.execute_script("if($.connection && $.connection.hub){$.connection.hub.stop();setTimeout(()=>$.connection.hub.start(),1000);}").await?;
+    driver.execute_script(KERNEL_MOD, Vec::new()).await?;
+    driver.execute_script("if($.connection && $.connection.hub){$.connection.hub.stop();setTimeout(()=>$.connection.hub.start(),1000);}", Vec::new()).await?;
 
     loop {
         let res = driver.execute_script(r#"
             if (typeof window.ws_captured_logs === 'undefined') return [];
             return window.ws_captured_logs.splice(0, window.ws_captured_logs.length);
-        "#).await;
+        "#, Vec::new()).await;
 
         if let Ok(val) = res {
             if let Ok(logs) = val.convert::<Vec<String>>() {
