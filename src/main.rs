@@ -54,35 +54,61 @@ async fn main() -> anyhow::Result<()> {
     caps.add_chrome_arg("--headless")?;
     caps.add_chrome_arg("--no-sandbox")?;
     caps.add_chrome_arg("--disable-dev-shm-usage")?;
+    caps.add_chrome_arg("--window-size=1920,1080")?; // FIX: سایز بزرگ برای جلوگیری از تداخل
     caps.add_chrome_arg("--disable-blink-features=AutomationControlled")?;
-    caps.add_chrome_arg("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")?;
+    caps.add_chrome_arg("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")?;
 
     let driver = WebDriver::new("http://localhost:4444", caps).await?;
 
     driver.goto(&t_target).await?;
-    tokio::time::sleep(Duration::from_secs(6)).await;
+    tokio::time::sleep(Duration::from_secs(8)).await;
 
+    // FIX: Cookie Killer - تلاش برای بستن بنرهای مزاحم
+    let _ = driver.execute_script(r#"
+        try {
+            const keywords = ["accept", "agree", "allow", "consent", "got it", "continue"];
+            const btns = document.querySelectorAll("button, a, div[role='button']");
+            for (let btn of btns) {
+                if (btn.innerText && keywords.some(k => btn.innerText.toLowerCase().includes(k))) {
+                    btn.click();
+                }
+            }
+        } catch(e) {}
+    "#, Vec::new()).await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    // کلیک روی دکمه Sign In اصلی
     let _ = driver.execute_script(r#"
         let btn = document.querySelector("a[href*='SignIn']") || document.querySelector(".login");
         if(btn) btn.click();
     "#, Vec::new()).await;
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_secs(4)).await;
 
+    // پر کردن فیلد ایمیل
     let f1 = driver.find(By::Css("#ctl00_SignInSignUp_loginForm1_inputEmail")).await?;
     f1.clear().await?;
     f1.send_keys(&c_client).await?;
 
+    // پر کردن فیلد پسورد
     let f2 = driver.find(By::Css("#ctl00_SignInSignUp_loginForm1_inputPassword")).await?;
     f2.clear().await?;
     f2.send_keys(&c_secret).await?;
 
-    let btn = driver.find(By::Css("#ctl00_SignInSignUp_loginForm1_btnLogin")).await?;
-    btn.click().await?;
+    // FIX: کلیک اجباری (Force Click) روی دکمه ورود با جاوااسکریپت
+    // این روش حتی اگر بنر روی دکمه باشد هم کار می‌کند
+    let _ = driver.execute_script(r#"
+        let btn = document.querySelector("#ctl00_SignInSignUp_loginForm1_btnLogin");
+        if (btn) btn.click();
+    "#, Vec::new()).await?;
 
-    tokio::time::sleep(Duration::from_secs(12)).await;
+    println!("Login submitted via JS force-click");
+    tokio::time::sleep(Duration::from_secs(15)).await;
 
+    // تزریق اسکریپت جاسوسی
     driver.execute_script(KERNEL_MOD, Vec::new()).await?;
     driver.execute_script("if($.connection && $.connection.hub){$.connection.hub.stop();setTimeout(()=>$.connection.hub.start(),1000);}", Vec::new()).await?;
+
+    println!("System engaged. Listening...");
 
     loop {
         let res = driver.execute_script(r#"
